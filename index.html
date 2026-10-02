@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doors Wiki</title>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Lora:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--wall:#1c1512;--panel:#261c17;--line:#4a3626;--text:#eadfca;--dim:#a8977c;--brass:#c39a4b;--velvet:#8a2a30}
+*{box-sizing:border-box}
+body{margin:0;background:var(--wall);color:var(--text);font:17px/1.65 Lora,Georgia,serif}
+a{color:var(--brass)}
+h1,h2,h3,.logo{font-family:"IM Fell English",Georgia,serif;font-weight:400;line-height:1.2}
+header{border-bottom:3px double var(--line);padding:14px 20px;display:flex;flex-wrap:wrap;gap:14px 28px;align-items:center;background:var(--panel)}
+.logo{font-size:28px;color:var(--text);text-decoration:none;border:2px solid var(--brass);padding:2px 14px;letter-spacing:.04em}
+nav{display:flex;gap:18px;flex-wrap:wrap}
+nav a{text-decoration:none;color:var(--text)}
+nav a:hover,nav a.on{color:var(--brass)}
+#q{margin-left:auto;background:var(--wall);border:1px solid var(--line);color:var(--text);padding:8px 12px;font:inherit;min-width:200px}
+main{max-width:1000px;margin:0 auto;padding:28px 20px 80px}
+h1{font-size:40px;margin:0 0 6px}
+.lead{color:var(--dim);margin:0 0 24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.card{display:block;border:1px solid var(--line);padding:14px 16px;text-decoration:none;color:var(--text);background:var(--panel)}
+.card:hover{border-color:var(--brass)}
+.card b{font-family:"IM Fell English",serif;font-size:21px;font-weight:400;display:block}
+.card small{color:var(--dim)}
+.cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:34px}
+.cats a{border-left:6px solid var(--velvet);padding:10px 16px;background:var(--panel);text-decoration:none;color:var(--text);font-family:"IM Fell English",serif;font-size:24px}
+.article{display:grid;grid-template-columns:1fr 260px;gap:30px;align-items:start}
+.infobox{border:1px solid var(--line);background:var(--panel);font-size:15px}
+.infobox h3{margin:0;padding:8px 12px;background:var(--velvet);font-size:20px}
+.infobox div{padding:6px 12px;border-top:1px solid var(--line)}
+.infobox span{color:var(--dim);display:block;font-size:13px}
+.crumb{color:var(--dim);font-size:14px;margin-bottom:10px}
+button,.btn{background:var(--brass);color:#1c1512;border:0;padding:9px 18px;font:600 15px Lora,serif;cursor:pointer}
+button.ghost{background:none;color:var(--brass);border:1px solid var(--brass)}
+input,textarea{width:100%;background:var(--wall);border:1px solid var(--line);color:var(--text);padding:9px 12px;font:inherit;margin:4px 0 10px}
+textarea{min-height:110px}
+.box{border:1px solid var(--line);background:var(--panel);padding:16px;margin-bottom:18px}
+.post{display:block;text-decoration:none;color:var(--text);border-bottom:1px solid var(--line);padding:14px 4px}
+.post:hover b{color:var(--brass)}
+.post b{font-family:"IM Fell English",serif;font-size:22px;font-weight:400;display:block}
+.meta{color:var(--dim);font-size:14px}
+.cm{border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:16px 0;white-space:pre-wrap}
+.err{color:#e07a7a}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+@media(max-width:760px){.article{grid-template-columns:1fr}#q{margin-left:0;width:100%}h1{font-size:32px}}
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="#/">DOORS WIKI</a>
+  <nav id="nav"></nav>
+  <input id="q" type="search" placeholder="Поиск по вики…" aria-label="Поиск">
+</header>
+<main id="app"></main>
+
+<script>
+/* ========= 1. НАСТРОЙКА SUPABASE (впиши свои значения) ========= */
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+
+/* ========= 2. КОНТЕНТ ВИКИ — просто добавляй объекты в этот массив ========= */
+const CATS = {entities:'Сущности', items:'Предметы', updates:'Обновления', lore:'Лор'};
+const DATA = [
+ {id:'rush', cat:'entities', title:'Rush', short:'Быстрая сущность, появляется в коридорах.',
+  info:{'Тип':'Сущность','Опасность':'Высокая','Как спастись':'Спрятаться в шкаф или под кровать'},
+  body:['Rush — сущность, которая проносится через несколько комнат подряд. О её появлении предупреждают мигание света и характерный звук.','Игрок должен успеть спрятаться. Если остаться на виду, сущность наносит урон.']},
+ {id:'ambush', cat:'entities', title:'Ambush', short:'Возвращается несколько раз за один заход.',
+  info:{'Тип':'Сущность','Опасность':'Высокая','Как спастись':'Прятаться и ждать, пока она вернётся'},
+  body:['Ambush похожа на Rush, но пролетает по коридору несколько раз подряд, поэтому из укрытия нельзя выходить после первого прохода.']},
+ {id:'seek', cat:'entities', title:'Seek', short:'Погоня с глазами на стенах.',
+  info:{'Тип':'Сущность','Опасность':'Очень высокая','Как спастись':'Бежать вперёд и не смотреть на глаза'},
+  body:['Seek преследует игрока в специальной погоне. На стенах появляются глаза, на которые лучше не смотреть, а на пути встречаются препятствия.']},
+ {id:'figure', cat:'entities', title:'Figure', short:'Слепой хранитель библиотеки.',
+  info:{'Тип':'Сущность','Опасность':'Очень высокая','Как спастись':'Двигаться тихо (приседать рядом с ним)'},
+  body:['Figure обитает в библиотеке. Он слепой и реагирует на звук, поэтому шум привлекает его внимание.']},
+ {id:'flashlight', cat:'items', title:'Фонарик', short:'Освещает тёмные комнаты.',
+  info:{'Тип':'Предмет','Где взять':'Начальный предмет / находки','Стоимость':'—'},
+  body:['Фонарик помогает ориентироваться в тёмных комнатах и искать предметы. Работает на батарейках, которые со временем садятся.']},
+ {id:'lockpicks', cat:'items', title:'Отмычки', short:'Открывают запертые двери.',
+  info:{'Тип':'Предмет','Где взять':'Комнаты и магазин','Одноразовый':'Да (ограниченное число использований)'},
+  body:['Отмычки позволяют открыть запертую дверь без ключа.']},
+ {id:'update-example', cat:'updates', title:'Пример: обновление Hotel+', short:'Шаблон страницы об обновлении.',
+  info:{'Дата':'укажи дату','Версия':'укажи версию'},
+  body:['Здесь опиши, что добавили или изменили в обновлении: новые сущности, предметы, комнаты, баланс.','Замени этот текст реальным списком изменений.']},
+ {id:'hotel', cat:'lore', title:'Отель', short:'Место действия игры.',
+  info:{'Тип':'Локация'},
+  body:['Игроки поднимаются по комнатам отеля, открывая двери одну за другой. Здесь можно собирать лор: записки, подсказки, теории и связи между сущностями.']}
+];
+
+/* ========= код сайта ========= */
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = d => new Date(d).toLocaleString('ru-RU');
+const configured = !SUPABASE_URL.includes('YOUR-PROJECT');
+const sb = configured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let user = null;
+
+$('#nav').innerHTML = '<a href="#/">Главная</a>' +
+  Object.entries(CATS).map(([k,v]) => `<a href="#/cat/${k}">${v}</a>`).join('') +
+  '<a href="#/forum">Форум</a>';
+
+$('#q').addEventListener('input', e => {
+  const v = e.target.value.trim();
+  location.hash = v ? '#/search/' + encodeURIComponent(v) : '#/';
+});
+
+const cards = list => `<div class="grid">${list.map(a =>
+  `<a class="card" href="#/wiki/${a.id}"><b>${esc(a.title)}</b><small>${esc(CATS[a.cat])} · ${esc(a.short)}</small></a>`).join('')}</div>` ||
+  '<p class="lead">Ничего не найдено.</p>';
+
+function home(){
+  app.innerHTML = `<h1>Doors Wiki</h1><p class="lead">Сущности, предметы, обновления и лор. Обсуждения — на форуме.</p>
+  <div class="cats">${Object.entries(CATS).map(([k,v]) => `<a href="#/cat/${k}">${v}</a>`).join('')}</div>
+  <h2>Все статьи</h2>${cards(DATA)}`;
+}
+function cat(k){
+  app.innerHTML = `<h1>${esc(CATS[k] || 'Раздел')}</h1><p class="lead">Статей: ${DATA.filter(a=>a.cat===k).length}</p>${cards(DATA.filter(a=>a.cat===k))}`;
+}
+function search(q){
+  const l = q.toLowerCase();
+  const r = DATA.filter(a => (a.title + a.short + a.body.join(' ')).toLowerCase().includes(l));
+  app.innerHTML = `<h1>Поиск: ${esc(q)}</h1><p class="lead">Найдено: ${r.length}</p>${cards(r)}`;
+}
+function article(id){
+  const a = DATA.find(x => x.id === id);
+  if(!a) return app.innerHTML = '<h1>Статья не найдена</h1><a href="#/">На главную</a>';
+  document.title = a.title + ' — Doors Wiki';
+  app.innerHTML = `<div class="crumb"><a href="#/cat/${a.cat}">${esc(CATS[a.cat])}</a> / ${esc(a.title)}</div>
+  <div class="article"><div><h1>${esc(a.title)}</h1>${a.body.map(p => `<p>${esc(p)}</p>`).join('')}</div>
+  <aside class="infobox"><h3>${esc(a.title)}</h3>${Object.entries(a.info).map(([k,v]) => `<div><span>${esc(k)}</span>${esc(v)}</div>`).join('')}</aside></div>`;
+}
+
+/* ----- Форум ----- */
+const nameOf = u => u.user_metadata?.name || u.email.split('@')[0];
+
+function authBox(msg=''){
+  if(user) return `<div class="box row"><span>Вы вошли как <b>${esc(nameOf(user))}</b></span><button class="ghost" id="out">Выйти</button></div>`;
+  return `<div class="box"><b>Войдите, чтобы писать</b>
+   <input id="em" type="email" placeholder="Почта" autocomplete="email">
+   <input id="pw" type="password" placeholder="Пароль (от 6 символов)" autocomplete="current-password">
+   <input id="nm" placeholder="Имя на форуме (только при регистрации)">
+   <button id="in">Войти</button> <button class="ghost" id="up">Зарегистрироваться</button>
+   <p class="err" id="aerr">${esc(msg)}</p></div>`;
+}
+function bindAuth(rerender){
+  $('#out')?.addEventListener('click', async () => { await sb.auth.signOut(); });
+  const go = async fn => {
+    const email = $('#em').value.trim(), password = $('#pw').value;
+    const {error} = await fn(email, password, $('#nm').value.trim());
+    if(error) $('#aerr').textContent = error.message;
+  };
+  $('#in')?.addEventListener('click', () => go((email,password) => sb.auth.signInWithPassword({email,password})));
+  $('#up')?.addEventListener('click', () => go(async (email,password,name) => {
+    const r = await sb.auth.signUp({email,password,options:{data:{name: name || email.split('@')[0]}}});
+    if(!r.error && !r.data.session) $('#aerr').textContent = 'Проверьте почту и подтвердите адрес.';
+    return r;
+  }));
+}
+const noSetup = () => app.innerHTML = `<h1>Форум</h1><div class="box">Форум ещё не подключён. Впиши <b>SUPABASE_URL</b> и <b>SUPABASE_ANON_KEY</b> в начале <code>index.html</code>.</div>`;
+
+async function forum(){
+  if(!configured) return noSetup();
+  app.innerHTML = '<h1>Форум</h1><p class="lead">Загрузка…</p>';
+  const {data, error} = await sb.from('posts').select('id,title,author,created_at,comments(count)').order('created_at',{ascending:false});
+  if(error) return app.innerHTML = `<h1>Форум</h1><p class="err">${esc(error.message)}</p>`;
+  app.innerHTML = `<h1>Форум</h1><p class="lead">Теории, вопросы, находки.</p>${authBox()}
+   ${user ? `<div class="box"><b>Новая тема</b><input id="pt" placeholder="Заголовок" maxlength="120"><textarea id="pb" placeholder="Текст" maxlength="5000"></textarea><button id="np">Опубликовать</button><p class="err" id="perr"></p></div>` : ''}
+   ${data.map(p => `<a class="post" href="#/forum/${p.id}"><b>${esc(p.title)}</b><span class="meta">${esc(p.author)} · ${fmt(p.created_at)} · ответов: ${p.comments?.[0]?.count ?? 0}</span></a>`).join('') || '<p class="lead">Тем пока нет. Создайте первую.</p>'}`;
+  bindAuth();
+  $('#np')?.addEventListener('click', async () => {
+    const title = $('#pt').value.trim(), body = $('#pb').value.trim();
+    if(!title || !body) return $('#perr').textContent = 'Заполните заголовок и текст.';
+    const {data:p, error:e} = await sb.from('posts').insert({title, body, user_id:user.id, author:nameOf(user)}).select().single();
+    if(e) return $('#perr').textContent = e.message;
+    location.hash = '#/forum/' + p.id;
+  });
+}
+
+async function thread(id){
+  if(!configured) return noSetup();
+  const [{data:p}, {data:cs}] = await Promise.all([
+    sb.from('posts').select('*').eq('id', id).maybeSingle(),
+    sb.from('comments').select('*').eq('post_id', id).order('created_at')
+  ]);
+  if(!p) return app.innerHTML = '<h1>Тема не найдена</h1><a href="#/forum">К форуму</a>';
+  const mine = x => user && user.id === x.user_id;
+  app.innerHTML = `<div class="crumb"><a href="#/forum">Форум</a> / ${esc(p.title)}</div>
+   <h1>${esc(p.title)}</h1><p class="meta">${esc(p.author)} · ${fmt(p.created_at)} ${mine(p) ? '· <a href="#" id="dp">удалить тему</a>' : ''}</p>
+   <p style="white-space:pre-wrap">${esc(p.body)}</p><h2>Комментарии (${cs.length})</h2>
+   ${cs.map(c => `<div class="cm"><span class="meta">${esc(c.author)} · ${fmt(c.created_at)} ${mine(c) ? `· <a href="#" data-dc="${c.id}">удалить</a>` : ''}</span><br>${esc(c.body)}</div>`).join('') || '<p class="lead">Комментариев пока нет.</p>'}
+   ${user ? `<div class="box"><textarea id="cb" placeholder="Ваш комментарий" maxlength="2000"></textarea><button id="nc">Отправить</button><p class="err" id="cerr"></p></div>` : ''}${authBox()}`;
+  bindAuth();
+  $('#nc')?.addEventListener('click', async () => {
+    const body = $('#cb').value.trim();
+    if(!body) return;
+    const {error} = await sb.from('comments').insert({post_id:id, body, user_id:user.id, author:nameOf(user)});
+    error ? $('#cerr').textContent = error.message : thread(id);
+  });
+  $('#dp')?.addEventListener('click', async e => { e.preventDefault(); if(confirm('Удалить тему?')){ await sb.from('posts').delete().eq('id', id); location.hash = '#/forum'; } });
+  document.querySelectorAll('[data-dc]').forEach(a => a.addEventListener('click', async e => { e.preventDefault(); await sb.from('comments').delete().eq('id', a.dataset.dc); thread(id); }));
+}
+
+/* ----- Роутер ----- */
+function route(){
+  document.title = 'Doors Wiki';
+  const [, a, b] = (location.hash || '#/').slice(1).split('/');
+  const arg = decodeURIComponent(b || '');
+  document.querySelectorAll('nav a').forEach(l => l.classList.toggle('on', l.getAttribute('href') === location.hash));
+  if(a === 'wiki') article(arg);
+  else if(a === 'cat') cat(arg);
+  else if(a === 'search') search(arg);
+  else if(a === 'forum') arg ? thread(arg) : forum();
+  else home();
+  window.scrollTo(0,0);
+}
+window.addEventListener('hashchange', route);
+
+(async () => {
+  if(sb){
+    user = (await sb.auth.getSession()).data.session?.user ?? null;
+    sb.auth.onAuthStateChange((_e, s) => { user = s?.user ?? null; if(location.hash.startsWith('#/forum')) route(); });
+  }
+  route();
+})();
+</script>
+</body>
+</html>
